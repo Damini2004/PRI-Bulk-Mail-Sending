@@ -133,9 +133,25 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
       if (!email) return;
 
       const recipientData = header.reduce((acc, currentHeader, index) => {
-          acc[currentHeader] = values[index];
+          // Normalize header: remove spaces and convert to lowercase for the key
+          const key = currentHeader.replace(/\s+/g, '').toLowerCase();
+          // Keep original header for handlebars template if needed, but standardize on `Lastname`
+          if (key === 'lastname') {
+            acc['Lastname'] = values[index];
+          } else {
+            acc[currentHeader] = values[index];
+          }
           return acc;
       }, {} as Record<string, string>);
+
+      // Ensure Lastname is available even if the header was different
+      if (!recipientData.Lastname) {
+          const lastNameHeader = header.find(h => h.replace(/\s+/g, '').toLowerCase() === 'lastname');
+          if(lastNameHeader && recipientData[lastNameHeader]) {
+            recipientData.Lastname = recipientData[lastNameHeader];
+          }
+      }
+
 
       const personalizedMessage = messageTemplate(recipientData);
       const personalizedSubject = subjectTemplate(recipientData);
