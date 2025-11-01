@@ -66,7 +66,7 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
     const personalizedSubject = subjectTemplate(recipientData);
     
     const mailOptions: nodemailer.SendMailOptions = {
-      from: `Pure Research Insights <${process.env.EMAIL_USER}>`,
+      from: `Pure Publication <${process.env.EMAIL_USER}>`,
       to: email,
       subject: personalizedSubject,
       html: personalizedMessage,
@@ -124,40 +124,35 @@ export async function sendEmailsAction(data: z.infer<typeof sendEmailsActionSche
     if (emailIndex === -1) {
       return { success: false, message: `The recipient file must contain an "email" column. Please check your file.` };
     }
+
+    const lastNameHeader = header.find(h => h.replace(/\s+/g, '').toLowerCase() === 'lastname');
+    if (!lastNameHeader) {
+        return { success: false, message: `The recipient file must contain a "Lastname" or "last name" column.` };
+    }
+    const lastNameIndex = header.indexOf(lastNameHeader);
     
     let sentCount = 0;
     const emailPromises = lines.map(async (line) => {
       const values = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.trim().replace(/"/g, ''));
       const email = values[emailIndex];
+      const lastname = values[lastNameIndex];
       
-      if (!email) return;
+      if (!email || !lastname) return;
 
       const recipientData = header.reduce((acc, currentHeader, index) => {
-          // Normalize header: remove spaces and convert to lowercase for the key
-          const key = currentHeader.replace(/\s+/g, '').toLowerCase();
-          // Keep original header for handlebars template if needed, but standardize on `Lastname`
-          if (key === 'lastname') {
-            acc['Lastname'] = values[index];
-          } else {
-            acc[currentHeader] = values[index];
-          }
+          acc[currentHeader] = values[index];
           return acc;
       }, {} as Record<string, string>);
-
-      // Ensure Lastname is available even if the header was different
-      if (!recipientData.Lastname) {
-          const lastNameHeader = header.find(h => h.replace(/\s+/g, '').toLowerCase() === 'lastname');
-          if(lastNameHeader && recipientData[lastNameHeader]) {
-            recipientData.Lastname = recipientData[lastNameHeader];
-          }
-      }
+      
+      // Ensure Lastname is available for the template
+      recipientData['Lastname'] = lastname;
 
 
       const personalizedMessage = messageTemplate(recipientData);
       const personalizedSubject = subjectTemplate(recipientData);
       
       const mailOptions: nodemailer.SendMailOptions = {
-        from: `Pure Research Insights <${process.env.EMAIL_USER}>`,
+        from: `Pure Publication <${process.env.EMAIL_USER}>`,
         to: email,
         subject: personalizedSubject,
         html: personalizedMessage,
